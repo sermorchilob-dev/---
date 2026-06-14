@@ -30,6 +30,23 @@ from reportlab.pdfbase.ttfonts import TTFont
 font_path = os.path.join(os.path.dirname(__file__), 'fonts', 'DejaVuSans.ttf')
 pdfmetrics.registerFont(TTFont('DejaVuSans', font_path))
 
+import sys
+from sqlalchemy import create_engine, text
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL not set")
+
+print(f"Attempting to connect to DB with URL: {DATABASE_URL.replace(os.getenv('EMAIL_PASSWORD', ''), '***')}", file=sys.stderr)
+try:
+    engine_test = create_engine(DATABASE_URL)
+    with engine_test.connect() as conn:
+        result = conn.execute(text("SELECT 1"))
+        print("Database connection successful", file=sys.stderr)
+except Exception as e:
+    print(f"Database connection failed: {e}", file=sys.stderr)
+    sys.exit(1)
+
 # ---------------------- CONFIG ----------------------
 load_dotenv()
 
