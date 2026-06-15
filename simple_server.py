@@ -1,4 +1,3 @@
-# simple_server.py
 import os
 import smtplib
 from datetime import datetime
@@ -22,51 +21,24 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
-import os
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
 
-# Путь к шрифту внутри проекта
-font_path = os.path.join(os.path.dirname(__file__), 'fonts', 'DejaVuSans.ttf')
-pdfmetrics.registerFont(TTFont('DejaVuSans', font_path))
-
-import sys
-from sqlalchemy import create_engine, text
-
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise ValueError("DATABASE_URL not set")
-
-print(f"Attempting to connect to DB with URL: {DATABASE_URL.replace(os.getenv('EMAIL_PASSWORD', ''), '***')}", file=sys.stderr)
-try:
-    engine_test = create_engine(DATABASE_URL)
-    with engine_test.connect() as conn:
-        result = conn.execute(text("SELECT 1"))
-        print("Database connection successful", file=sys.stderr)
-except Exception as e:
-    print(f"Database connection failed: {e}", file=sys.stderr)
-    #sys.exit(1)
-
-# ---------------------- CONFIG ----------------------
+# Загружаем переменные окружения
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL") or os.getenv("NEXT_PUBLIC_API_URL")
+# ----- Конфигурация базы данных (используем Transaction pooler с портом 6543) -----
+DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("❌ DATABASE_URL не задан в .env")
 
+# Приводим к формату для psycopg2 (если нужно)
 if DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://")
 
-EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
-if not EMAIL_PASSWORD:
-    raise ValueError("❌ EMAIL_PASSWORD не задан в .env")
-
-# ---------------------- DATABASE ----------------------
-engine = create_engine(DATABASE_URL, echo=True)
+engine = create_engine(DATABASE_URL, echo=False)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# ---------------------- MODELS ----------------------
+# ----- Модели для заявок -----
 class QuotationRequest(Base):
     __tablename__ = "quotation_requests"
     id = Column(Integer, primary_key=True, index=True)
@@ -89,10 +61,10 @@ class RequestItem(Base):
     quantity = Column(Integer, default=1)
     notes = Column(Text)
 
-# Создаём таблицы, если их нет
+# Создаём таблицы (если их нет)
 Base.metadata.create_all(bind=engine)
 
-# ---------------------- PYDANTIC SCHEMAS ----------------------
+# ----- Pydantic схемы -----
 class QuoteRequestItem(BaseModel):
     product_id: int
     product_name: str
@@ -125,23 +97,7 @@ class ProductResponse(BaseModel):
     price: Optional[float]
     manufacturer_name: str
 
-# ---------------------- MASTER SELECTION ----------------------
-selection_sessions = {}
-MOTOR_QUESTIONS = [
-    {"id": "power", "question": "Какая требуемая мощность (кВт)?", "type": "number", "unit": "кВт"},
-    {"id": "speed", "question": "Требуемая частота вращения (об/мин)?", "type": "number", "unit": "об/мин"},
-    {"id": "manufacturer", "question": "Производитель?", "type": "select", "options": ["Siemens", "ABB", "SEW-Eurodrive", "Любой"]},
-    {"id": "voltage", "question": "Напряжение сети?", "type": "select", "options": ["220V", "380V", "400V", "660V", "Любое"]},
-    {"id": "mounting", "question": "Монтажное исполнение?", "type": "select", "options": ["IM B3", "IM B5", "IM B14", "Не важно"]},
-    {"id": "price_max", "question": "Максимальная цена (руб)?", "type": "number", "unit": "руб"}
-]
-
-class AnswerSubmit(BaseModel):
-    session_id: str
-    answer_id: str
-    value: Any
-
-# ---------------------- HELPERS ----------------------
+# ----- Вспомогательные функции -----
 def get_db():
     db = SessionLocal()
     try:
@@ -153,22 +109,29 @@ def generate_request_number():
     now = datetime.utcnow()
     return f"RQ-{now.strftime('%Y%m%d')}-{now.strftime('%H%M%S')}"
 
-def send_email_notification(manager_email: str, subject: str, body_html: str, password: str):
-    sender_email = "Ser.orchilob@gmail.com"  # можно вынести в .env
+# ----- Отправка email (без вложений, только текст) -----
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+if not EMAIL_PASSWORD:
+    print("⚠️ EMAIL_PASSWORD не задан – уведомления не будут отправляться")
+
+def send_email_notification(manager_email: str, subject: str, body_html: str):
+    if not EMAIL_PASSWORD:
+        return
+    sender_email = "Ser.orchilob@gmail.com"
     msg = MIMEMultipart()
     msg["From"] = sender_email
     msg["To"] = manager_email
     msg["Subject"] = subject
     msg.attach(MIMEText(body_html, "html"))
-
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(sender_email, password)
+            server.login(sender_email, EMAIL_PASSWORD)
             server.sendmail(sender_email, manager_email, msg.as_string())
         print("✅ Email отправлен")
     except Exception as e:
         print(f"❌ Ошибка email: {e}")
 
+# ----- Генерация PDF (без внешних шрифтов) -----
 def generate_quote_pdf(request_id: int, request_data: dict, items: list, db: Session) -> str:
     pdf_dir = "pdf_quotes"
     os.makedirs(pdf_dir, exist_ok=True)
@@ -177,11 +140,12 @@ def generate_quote_pdf(request_id: int, request_data: dict, items: list, db: Ses
 
     doc = SimpleDocTemplate(filepath, pagesize=A4, topMargin=20*mm, bottomMargin=20*mm)
     styles = getSampleStyleSheet()
-    for style in styles.byName.values():
-        style.fontName = 'DejaVuSans'
     title_style = ParagraphStyle(
-        'TitleStyle', parent=styles['Heading1'], fontSize=16,
-        alignment=1, spaceAfter=12, fontName='DejaVuSans'
+        'TitleStyle',
+        parent=styles['Heading1'],
+        fontSize=16,
+        alignment=1,
+        spaceAfter=12
     )
 
     story = []
@@ -200,30 +164,26 @@ def generate_quote_pdf(request_id: int, request_data: dict, items: list, db: Ses
         price = float(price_row[0]) if price_row and price_row[0] else 0.0
         amount = price * item.quantity
         total_sum += amount
-        # Очистка названия от битых символов и замена 'kW' на 'кВт'
-        clean_name = item.product_name
-        clean_name = clean_name.replace('■', 'кВт').replace('kW', 'кВт').replace('₽', 'руб')
         data.append([
             str(idx),
-            clean_name,
+            item.product_name,
             str(item.quantity),
             f"{price:,.2f} руб.",
             f"{amount:,.2f} руб."
         ])
     data.append(["", "", "", "<b>Итого:</b>", f"<b>{total_sum:,.2f} руб.</b>"])
 
-    col_widths = [30, 250, 50, 80, 80]
-    table = Table(data, colWidths=col_widths)
+    table = Table(data, colWidths=[30, 250, 50, 80, 80])
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('FONTNAME', (0, 0), (-1, 0), 'DejaVuSans'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
         ('BACKGROUND', (0, 1), (-1, -2), colors.beige),
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ('FONTNAME', (0, -1), (-1, -1), 'DejaVuSans'),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
     ]))
     story.append(table)
     story.append(Spacer(1, 20))
@@ -232,7 +192,8 @@ def generate_quote_pdf(request_id: int, request_data: dict, items: list, db: Ses
 
     doc.build(story)
     return filepath
-# ---------------------- FASTAPI APP ----------------------
+
+# ----- FastAPI приложение -----
 app = FastAPI(title="Конфигуратор приводной техники", version="2.0")
 app.add_middleware(
     CORSMiddleware,
@@ -242,12 +203,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ---------------------- ROOT ----------------------
+# ----- Эндпоинты -----
 @app.get("/")
 def root():
     return {"message": "API конфигуратора работает"}
 
-# ---------------------- PRODUCTS ----------------------
 @app.get("/api/v1/products")
 def get_products(
     limit: int = 20,
@@ -271,7 +231,6 @@ def get_products(
     """
     params = {}
     conditions = []
-
     if power_min is not None:
         conditions.append("p.power_kw >= :power_min")
         params["power_min"] = power_min
@@ -296,7 +255,6 @@ def get_products(
     if search:
         conditions.append("(p.name ILIKE :search OR p.product_code ILIKE :search)")
         params["search"] = f"%{search}%"
-
     if conditions:
         query += " AND " + " AND ".join(conditions)
     query += " ORDER BY p.id LIMIT :limit OFFSET :offset"
@@ -342,7 +300,6 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
         manufacturer_name=row[7]
     )
 
-# ---------------------- QUOTE REQUESTS ----------------------
 @app.post("/api/v1/quote-requests", response_model=QuoteResponse)
 def create_quote_request(request: QuoteRequestCreate, db: Session = Depends(get_db)):
     req_number = generate_request_number()
@@ -371,7 +328,6 @@ def create_quote_request(request: QuoteRequestCreate, db: Session = Depends(get_
     db.commit()
     db.refresh(db_request)
 
-    # Генерация PDF
     pdf_url = None
     try:
         request_dict = {
@@ -384,9 +340,8 @@ def create_quote_request(request: QuoteRequestCreate, db: Session = Depends(get_
         pdf_path = generate_quote_pdf(db_request.id, request_dict, items_list, db)
         pdf_url = f"/api/v1/quote-requests/{db_request.id}/download"
     except Exception as e:
-        print(f"Ошибка генерации PDF: {e}")
+        print(f"Ошибка PDF: {e}")
 
-    # Email-уведомление менеджеру
     try:
         items_list = db.query(RequestItem).filter(RequestItem.request_id == db_request.id).all()
         body = f"""
@@ -407,9 +362,9 @@ def create_quote_request(request: QuoteRequestCreate, db: Session = Depends(get_
 </ul>
 <p><b>Дата:</b> {datetime.now().strftime('%d.%m.%Y %H:%M')}</p>
 """
-        send_email_notification("manager@example.com", f"Заявка #{db_request.request_number}", body, EMAIL_PASSWORD)
+        send_email_notification("manager@example.com", f"Заявка #{db_request.request_number}", body)
     except Exception as e:
-        print(f"Ошибка отправки email: {e}")
+        print(f"Ошибка email: {e}")
 
     return QuoteResponse(
         id=db_request.id,
@@ -446,45 +401,44 @@ def list_quote_requests(db: Session = Depends(get_db)):
         for r in requests
     ]
 
-# ---------------------- MASTER SELECTION ENDPOINTS ----------------------
+# ----- Мастер подбора (упрощённый) -----
+selection_sessions = {}
+MOTOR_QUESTIONS = [
+    {"id": "power", "question": "Мощность (кВт)?", "type": "number"},
+    {"id": "speed", "question": "Обороты (об/мин)?", "type": "number"},
+    {"id": "manufacturer", "question": "Производитель?", "type": "select", "options": ["Siemens", "ABB", "SEW-Eurodrive", "Любой"]},
+    {"id": "price_max", "question": "Макс. цена (руб)?", "type": "number"},
+]
+
+class AnswerSubmit(BaseModel):
+    session_id: str
+    answer_id: str
+    value: Any
+
 @app.post("/api/selection/start")
-def start_selection(device_type: str = "electric_motor"):
+def start_selection():
     session_id = str(uuid4())
-    selection_sessions[session_id] = {"device_type": device_type, "answers": {}, "current_index": 0}
+    selection_sessions[session_id] = {"answers": {}, "current_index": 0}
     return {"session_id": session_id, "questions": MOTOR_QUESTIONS, "total": len(MOTOR_QUESTIONS)}
 
 @app.post("/api/selection/answer")
 def submit_answer(data: AnswerSubmit):
-    session_id = data.session_id
-    if session_id not in selection_sessions:
+    if data.session_id not in selection_sessions:
         raise HTTPException(status_code=404, detail="Session not found")
-
-    selection_sessions[session_id]["answers"][data.answer_id] = data.value
-    current_index = selection_sessions[session_id].get("current_index", 0)
-    next_index = current_index + 1
-
-    if next_index < len(MOTOR_QUESTIONS):
-        selection_sessions[session_id]["current_index"] = next_index
-        next_question = MOTOR_QUESTIONS[next_index]
-        return {
-            "next_question": next_question,
-            "progress": next_index + 1,
-            "total": len(MOTOR_QUESTIONS),
-            "finished": False
-        }
+    selection_sessions[data.session_id]["answers"][data.answer_id] = data.value
+    current = selection_sessions[data.session_id].get("current_index", 0)
+    nxt = current + 1
+    if nxt < len(MOTOR_QUESTIONS):
+        selection_sessions[data.session_id]["current_index"] = nxt
+        return {"next_question": MOTOR_QUESTIONS[nxt], "progress": nxt + 1, "total": len(MOTOR_QUESTIONS), "finished": False}
     else:
-        return {
-            "finished": True,
-            "progress": len(MOTOR_QUESTIONS),
-            "total": len(MOTOR_QUESTIONS)
-        }
+        return {"finished": True, "progress": len(MOTOR_QUESTIONS), "total": len(MOTOR_QUESTIONS)}
 
 @app.post("/api/selection/result")
 def get_selection_result(session_id: str, db: Session = Depends(get_db)):
     if session_id not in selection_sessions:
         raise HTTPException(status_code=404, detail="Session not found")
     answers = selection_sessions[session_id]["answers"]
-
     query = """
         SELECT p.id, p.product_code, p.name, p.power_kw, p.speed_rpm, p.price, m.name as manufacturer_name
         FROM products p
@@ -492,32 +446,26 @@ def get_selection_result(session_id: str, db: Session = Depends(get_db)):
         WHERE p.is_active = true
     """
     params = {}
-    conditions = []
-
+    conds = []
     if "power" in answers:
-        power = float(answers["power"])
-        conditions.append("p.power_kw >= :power_min AND p.power_kw <= :power_max")
-        params["power_min"] = power * 0.9
-        params["power_max"] = power * 1.1
+        pwr = float(answers["power"])
+        conds.append("p.power_kw >= :pmin AND p.power_kw <= :pmax")
+        params["pmin"] = pwr * 0.9
+        params["pmax"] = pwr * 1.1
     if "speed" in answers:
-        speed = int(answers["speed"])
-        conditions.append("p.speed_rpm >= :speed_min AND p.speed_rpm <= :speed_max")
-        params["speed_min"] = speed * 0.95
-        params["speed_max"] = speed * 1.05
+        spd = int(answers["speed"])
+        conds.append("p.speed_rpm >= :smin AND p.speed_rpm <= :smax")
+        params["smin"] = spd * 0.95
+        params["smax"] = spd * 1.05
     if "manufacturer" in answers and answers["manufacturer"] != "Любой":
-        conditions.append("m.name = :manufacturer")
-        params["manufacturer"] = answers["manufacturer"]
-    if "voltage" in answers and answers["voltage"] != "Любое":
-        conditions.append("p.voltage = :voltage")
-        params["voltage"] = answers["voltage"]
+        conds.append("m.name = :manuf")
+        params["manuf"] = answers["manufacturer"]
     if "price_max" in answers:
-        conditions.append("p.price <= :price_max")
-        params["price_max"] = float(answers["price_max"])
-
-    if conditions:
-        query += " AND " + " AND ".join(conditions)
+        conds.append("p.price <= :pmax")
+        params["pmax"] = float(answers["price_max"])
+    if conds:
+        query += " AND " + " AND ".join(conds)
     query += " ORDER BY p.price LIMIT 20"
-
     result = db.execute(text(query), params)
     products = []
     for row in result:
@@ -532,8 +480,6 @@ def get_selection_result(session_id: str, db: Session = Depends(get_db)):
         })
     return products
 
-# ---------------------- MAIN ----------------------
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
