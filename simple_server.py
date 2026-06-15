@@ -45,7 +45,7 @@ try:
         print("Database connection successful", file=sys.stderr)
 except Exception as e:
     print(f"Database connection failed: {e}", file=sys.stderr)
-    sys.exit(1)
+    #sys.exit(1)
 
 # ---------------------- CONFIG ----------------------
 load_dotenv()
