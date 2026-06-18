@@ -1,5 +1,6 @@
 import os
 import smtplib
+import sys
 from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -112,7 +113,7 @@ def generate_request_number():
 # ----- Отправка email (без вложений, только текст) -----
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 if not EMAIL_PASSWORD:
-    print("⚠️ EMAIL_PASSWORD не задан – уведомления не будут отправляться")
+   
 
 def send_email_notification(manager_email: str, subject: str, body_html: str):
     if not EMAIL_PASSWORD:
@@ -127,9 +128,7 @@ def send_email_notification(manager_email: str, subject: str, body_html: str):
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(sender_email, EMAIL_PASSWORD)
             server.sendmail(sender_email, manager_email, msg.as_string())
-        print("✅ Email отправлен")
-    except Exception as e:
-        print(f"❌ Ошибка email: {e}")
+            
 
 # ----- Генерация PDF (без внешних шрифтов) -----
 def generate_quote_pdf(request_id: int, request_data: dict, items: list, db: Session) -> str:
@@ -339,9 +338,7 @@ def create_quote_request(request: QuoteRequestCreate, db: Session = Depends(get_
         items_list = db.query(RequestItem).filter(RequestItem.request_id == db_request.id).all()
         pdf_path = generate_quote_pdf(db_request.id, request_dict, items_list, db)
         pdf_url = f"/api/v1/quote-requests/{db_request.id}/download"
-    except Exception as e:
-        print(f"Ошибка PDF: {e}")
-
+    
     try:
         items_list = db.query(RequestItem).filter(RequestItem.request_id == db_request.id).all()
         body = f"""
@@ -363,9 +360,7 @@ def create_quote_request(request: QuoteRequestCreate, db: Session = Depends(get_
 <p><b>Дата:</b> {datetime.now().strftime('%d.%m.%Y %H:%M')}</p>
 """
         send_email_notification("manager@example.com", f"Заявка #{db_request.request_number}", body)
-    except Exception as e:
-        print(f"Ошибка email: {e}")
-
+    
     return QuoteResponse(
         id=db_request.id,
         request_number=db_request.request_number,
