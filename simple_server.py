@@ -1,6 +1,8 @@
 import os
 import smtplib
 import sys
+print("=== STARTING APP ===", file=sys.stderr)
+sys.stderr.flush()
 from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
