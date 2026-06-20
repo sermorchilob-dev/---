@@ -92,7 +92,6 @@ export interface BearingUnit {
   static_load_kn?: number;
   manufacturer?: { id: number; name: string };
 }
-export interface Gearbox { id: number; gearbox_number: string; }
 
 // ---------- API для продуктов (реально работает) ----------
 export const productsApi = {
