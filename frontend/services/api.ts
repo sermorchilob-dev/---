@@ -58,6 +58,9 @@ export interface Gearbox {
   manufacturer?: { id: number; name: string };
   is_active?: boolean;
 }
+export type GearboxWithManufacturer = Gearbox {
+   manufacturer?: { id: number; name: string } | null;
+}
 
 export interface Bearing {
   id: number;
