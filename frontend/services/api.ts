@@ -60,27 +60,25 @@ export interface Gearbox {
 export interface Bearing {
   id: number;
   bearing_number: string;
-  // Основные размеры
   bore_diameter_mm?: number;
   outer_diameter_mm?: number;
   width_mm?: number;
-  // Тип и характеристики
-  bearing_type?: string;          // ← именно это поле используется
-  type_name?: string;             // альтернативное название
+  bearing_type?: {
+    id?: number;
+    name: string;
+  };
+  type_name?: string;          // если используется отдельно
   seal_type?: string;
   clearance?: string;
-  // Нагрузки
   dynamic_load_rating_kn?: number;
   static_load_rating_kn?: number;
   limiting_speed_rpm?: number;
-  // Вес и цена
   weight_kg?: number;
   price?: number;
   currency?: string;
-  // Производитель
   manufacturer?: { id: number; name: string };
-  // Дополнительно (если используется)
   series_code?: string;
+  manufacturer_name?: string;   // если бэкенд отдаёт строку
 }
 export interface BearingUnit {
   id: number;
