@@ -24,9 +24,56 @@ export interface Product {
 }
 
 // Заглушки для остальных типов (чтобы не ломать импорты)
-export interface Manufacturer { id: number; name: string; }
-export interface Category { id: number; name: string; }
-export interface Bearing { id: number; bearing_number: string; }
+export interface Manufacturer {
+  id: number;
+  name: string;
+  country?: string;
+  website?: string;
+}
+exexport interface Gearbox {
+  id: number;
+  gearbox_number: string;
+  name?: string;
+  gearbox_type?: string;          // или enum
+  series?: string;
+  stages?: number;
+  input_power_kw?: number;
+  output_torque_nm?: number;
+  ratio?: number;
+  input_speed_rpm?: number;
+  output_speed_rpm?: number;
+  service_factor?: number;
+  efficiency?: number;
+  weight_kg?: number;
+  mounting_position?: string;
+  output_shaft_diameter_mm?: number;
+  output_shaft_length_mm?: number;
+  output_flange_type?: string;
+  hollow_shaft?: boolean;
+  oil_volume_l?: number;
+  radial_load_n?: number;
+  price?: number;
+  currency?: string;
+  manufacturer?: { id: number; name: string };
+  is_active?: boolean;
+}
+export interface Bearing {
+  id: number;
+  bearing_number: string;
+  bore_diameter_mm?: number;
+  outer_diameter_mm?: number;
+  width_mm?: number;
+  type_name?: string;
+  seal_type?: string;
+  clearance?: string;
+  dynamic_load_rating_kn?: number;
+  static_load_rating_kn?: number;
+  limiting_speed_rpm?: number;
+  weight_kg?: number;
+  price?: number;
+  currency?: string;
+  manufacturer?: { id: number; name: string };
+}
 export interface BearingUnit {
   id: number;
   unit_number: string;
