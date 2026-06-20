@@ -60,11 +60,6 @@ export interface Gearbox {
 export interface Bearing {
   id: number;
   bearing_number: string;
-  bore_diameter_mm?: number;
-  outer_diameter_mm?: number;
-  export interface Bearing {
-  id: number;
-  bearing_number: string;
   // Основные размеры
   bore_diameter_mm?: number;
   outer_diameter_mm?: number;
