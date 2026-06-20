@@ -67,7 +67,7 @@ export interface Bearing {
     id?: number;
     name: string;
   };
-  type_name?: string;          // если используется отдельно
+  type_name?: string;
   seal_type?: string;
   clearance?: string;
   dynamic_load_rating_kn?: number;
@@ -77,10 +77,14 @@ export interface Bearing {
   price?: number;
   currency?: string;
   manufacturer?: { id: number; name: string };
-  series_code?: string;
-  manufacturer_name?: string;   // если бэкенд отдаёт строку
-}
-export interface BearingUnit {
+  series?: {           // ← добавляем объект series
+    id?: number;
+    series_code?: string;
+    [key: string]: any; // если могут быть другие поля
+  };
+  series_code?: string; // возможно, напрямую
+  manufacturer_name?: string;
+}export interface BearingUnit {
   id: number;
   unit_number: string;
   shaft_diameter_mm?: number;
