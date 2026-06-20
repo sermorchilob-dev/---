@@ -131,15 +131,33 @@ export const manufacturersApi = {
 };
 
 // ---------- Заглушки для остальных API, чтобы не падал импорт ----------
+// ---------- Заглушки для остальных API, чтобы не падал импорт ----------
 export const categoriesApi = {
   getAll: async () => [],
 };
 
 export const bearingsApi = {
-  getAll: async () => [],
-  getById: async () => null,
-  getByShaft: async () => [],
-  search: async () => [],
+  getAll: async (params?: any) => {
+    // Если есть реальный эндпоинт, можно раскомментировать:
+    // const response = await api.get('/api/v1/bearings', { params });
+    // return response.data;
+    return [];
+  },
+  getById: async (id: number) => {
+    // const response = await api.get(`/api/v1/bearings/${id}`);
+    // return response.data;
+    return null;
+  },
+  getByShaft: async (shaftDiameter: number, tolerance: number = 0.1) => {
+    // const response = await api.get(`/api/v1/bearings/by-shaft/${shaftDiameter}`, { params: { tolerance } });
+    // return response.data;
+    return [];
+  },
+  search: async (query: string) => {
+    // const response = await api.get('/api/v1/bearings/search', { params: { q: query } });
+    // return response.data;
+    return [];
+  },
 };
 
 export const bearingManufacturersApi = {
@@ -147,15 +165,27 @@ export const bearingManufacturersApi = {
 };
 
 export const bearingUnitsApi = {
-  getAll: async () => [],
-  getById: async () => null,
-  getByNumber: async () => null,
+  getAll: async (params?: any) => {
+    return [];
+  },
+  getById: async (id: number) => {
+    return null;
+  },
+  getByNumber: async (number: string) => {
+    return null;
+  },
 };
 
 export const gearboxesApi = {
-  getAll: async () => [],
-  getById: async () => null,
-  getByNumber: async () => null,
+  getAll: async (params?: any) => {
+    return [];
+  },
+  getById: async (id: number) => {
+    return null;
+  },
+  getByNumber: async (number: string) => {
+    return null;
+  },
 };
 
 // Перечисления (чтобы не сломать импорты)
