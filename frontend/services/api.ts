@@ -30,7 +30,7 @@ export interface Manufacturer {
   country?: string;
   website?: string;
 }
-exexport interface Gearbox {
+export interface Gearbox {
   id: number;
   gearbox_number: string;
   name?: string;
