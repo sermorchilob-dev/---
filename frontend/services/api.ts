@@ -62,17 +62,30 @@ export interface Bearing {
   bearing_number: string;
   bore_diameter_mm?: number;
   outer_diameter_mm?: number;
+  export interface Bearing {
+  id: number;
+  bearing_number: string;
+  // Основные размеры
+  bore_diameter_mm?: number;
+  outer_diameter_mm?: number;
   width_mm?: number;
-  type_name?: string;
+  // Тип и характеристики
+  bearing_type?: string;          // ← именно это поле используется
+  type_name?: string;             // альтернативное название
   seal_type?: string;
   clearance?: string;
+  // Нагрузки
   dynamic_load_rating_kn?: number;
   static_load_rating_kn?: number;
   limiting_speed_rpm?: number;
+  // Вес и цена
   weight_kg?: number;
   price?: number;
   currency?: string;
+  // Производитель
   manufacturer?: { id: number; name: string };
+  // Дополнительно (если используется)
+  series_code?: string;
 }
 export interface BearingUnit {
   id: number;
