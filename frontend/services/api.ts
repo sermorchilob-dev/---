@@ -23,18 +23,19 @@ export interface Product {
   in_stock: boolean;
 }
 
-// Заглушки для остальных типов (чтобы не ломать импорты)
+// ---------- Интерфейсы ----------
 export interface Manufacturer {
   id: number;
   name: string;
   country?: string;
   website?: string;
 }
+
 export interface Gearbox {
   id: number;
   gearbox_number: string;
   name?: string;
-  gearbox_type?: string;          // или enum
+  gearbox_type?: string;          // или enum GearboxType
   series?: string;
   stages?: number;
   input_power_kw?: number;
@@ -57,12 +58,17 @@ export interface Gearbox {
   manufacturer?: { id: number; name: string };
   is_active?: boolean;
 }
+
 export interface Bearing {
   id: number;
   bearing_number: string;
+  // Основные размеры
   bore_diameter_mm?: number;
   outer_diameter_mm?: number;
   width_mm?: number;
+  width_inner_mm?: number;
+  width_outer_mm?: number;
+  // Тип и характеристики
   bearing_type?: {
     id?: number;
     name: string;
@@ -70,21 +76,28 @@ export interface Bearing {
   type_name?: string;
   seal_type?: string;
   clearance?: string;
+  // Нагрузки
   dynamic_load_rating_kn?: number;
   static_load_rating_kn?: number;
   limiting_speed_rpm?: number;
+  // Вес и цена
   weight_kg?: number;
   price?: number;
   currency?: string;
+  // Производитель и серия
   manufacturer?: { id: number; name: string };
-  series?: {           // ← добавляем объект series
+  manufacturer_name?: string;
+  series?: {
     id?: number;
     series_code?: string;
-    [key: string]: any; // если могут быть другие поля
   };
-  series_code?: string; // возможно, напрямую
-  manufacturer_name?: string;
-}export interface BearingUnit {
+  series_code?: string;
+  // Если есть другие динамические поля – можно оставить индексную сигнатуру,
+  // но лучше явно их перечислить выше.
+  [key: string]: any;
+}
+
+export interface BearingUnit {
   id: number;
   unit_number: string;
   shaft_diameter_mm?: number;
