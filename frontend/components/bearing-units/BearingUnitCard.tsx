@@ -2,26 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { BearingUnit } from '@/services/api';   // ← импорт из общего файла
 import RequestForm from '@/components/RequestForm';
-
-interface BearingUnit {
-  id: number;
-  unit_number: string;
-  shaft_diameter_mm: number;
-  housing_type: string;
-  housing_material: string;
-  a_mm?: number;
-  e_mm?: number;
-  i_mm?: number;
-  g_mm?: number;
-  l_mm?: number;
-  s_mm?: number;
-  b_mm?: number;
-  weight_kg?: number;
-  dynamic_load_kn?: number;
-  static_load_kn?: number;
-  manufacturer?: { name: string };
-}
 
 interface BearingUnitCardProps {
   unit: BearingUnit;
@@ -43,10 +25,10 @@ export default function BearingUnitCard({ unit }: BearingUnitCardProps) {
           </span>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-          <div><span className="text-gray-500">Вал:</span> {unit.shaft_diameter_mm} мм</div>
-          <div><span className="text-gray-500">Масса:</span> {unit.weight_kg} кг</div>
-          <div><span className="text-gray-500">Дин. нагрузка:</span> {unit.dynamic_load_kn} кН</div>
-          <div><span className="text-gray-500">Стат. нагрузка:</span> {unit.static_load_kn} кН</div>
+          <div><span className="text-gray-500">Вал:</span> {unit.shaft_diameter_mm ?? '—'} мм</div>
+          <div><span className="text-gray-500">Масса:</span> {unit.weight_kg ?? '—'} кг</div>
+          <div><span className="text-gray-500">Дин. нагрузка:</span> {unit.dynamic_load_kn ?? '—'} кН</div>
+          <div><span className="text-gray-500">Стат. нагрузка:</span> {unit.static_load_kn ?? '—'} кН</div>
         </div>
         <div className="mt-4 flex justify-between items-center">
           <span className="text-sm text-gray-600">{unit.manufacturer?.name || 'ASAHI'}</span>
