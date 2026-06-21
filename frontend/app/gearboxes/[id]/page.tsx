@@ -29,17 +29,18 @@ export default function GearboxDetailPage() {
     }
   };
 
-  const getTypeName = (type: string) => {
-    const types: Record<string, string> = {
-      'WORM': 'Червячный',
-      'HELICAL': 'Цилиндрический',
-      'HELICAL_BEVEL': 'Коническо-цилиндрический',
-      'PARALLEL_SHAFT': 'Плоскоцилиндрический',
-      'VARIATOR': 'Вариатор',
-      'INDUSTRIAL': 'Индустриальный'
-    };
-    return types[type] || type;
+  function getTypeName(type?: string): string {
+  if (!type) return 'Не указан';
+  const types: Record<string, string> = {
+    'WORM': 'Червячный',
+    'HELICAL': 'Цилиндрический',
+    'HELICAL_BEVEL': 'Коническо-цилиндрический',
+    'PARALLEL_SHAFT': 'Плоскоцилиндрический',
+    'VARIATOR': 'Вариатор',
+    'INDUSTRIAL': 'Индустриальный'
   };
+  return types[type] || type;
+};
 
   if (loading) {
     return (
