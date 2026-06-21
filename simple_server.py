@@ -394,7 +394,7 @@ def list_quote_requests(db: Session = Depends(get_db)):
             "company_name": r.company_name,
             "status": r.status,
             "created_at": r.created_at.isoformat()
-        }
+3        }
         for r in requests
     ]
 
@@ -479,4 +479,6 @@ def get_selection_result(session_id: str, db: Session = Depends(get_db)):
 
 if __name__ == "__main__":
     import uvicorn
+    print("=== RUNNING UVICORN ===", file=sys.stderr)
+sys.stderr.flush()
     uvicorn.run(app, host="0.0.0.0", port=8000)
