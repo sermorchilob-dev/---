@@ -30,7 +30,7 @@ export interface Manufacturer {
   country?: string;
   website?: string;
 }
-
+export type BearingManufacturer = Manufacturer;
 export interface Gearbox {
   id: number;
   gearbox_number: string;
