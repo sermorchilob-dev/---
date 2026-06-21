@@ -12,17 +12,18 @@ interface GearboxCardProps {
 export default function GearboxCard({ gearbox }: GearboxCardProps) {
   const [showForm, setShowForm] = useState(false);
 
-  const getTypeName = (type: string) => {
-    const types: Record<string, string> = {
-      'WORM': 'Червячный',
-      'HELICAL': 'Цилиндрический',
-      'HELICAL_BEVEL': 'Коническо-цилиндрический',
-      'PARALLEL_SHAFT': 'Плоскоцилиндрический',
-      'VARIATOR': 'Вариатор',
-      'INDUSTRIAL': 'Индустриальный'
-    };
-    return types[type] || type;
+  function getTypeName(type?: string): string {
+  if (!type) return '—';
+  const types: Record<string, string> = {
+    'WORM': 'Червячный',
+    'HELICAL': 'Цилиндрический',
+    'HELICAL_BEVEL': 'Коническо-цилиндрический',
+    'PARALLEL_SHAFT': 'Плоскоцилиндрический',
+    'VARIATOR': 'Вариатор',
+    'INDUSTRIAL': 'Индустриальный',
   };
+  return types[type] || type;
+}
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition">
