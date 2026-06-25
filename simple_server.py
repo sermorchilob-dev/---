@@ -344,34 +344,28 @@ def create_quote_request(request: QuoteRequestCreate, db: Session = Depends(get_
         pdf_url = f"/api/v1/quote-requests/{db_request.id}/download"
     
     try:
-        items_list = db.query(RequestItem).filter(RequestItem.request_id == db_request.id).all()
-        body = f"""
+    items_list = db.query(RequestItem).filter(RequestItem.request_id == db_request.id).all()
+    body = f"""
 <h2>Новая заявка #{db_request.request_number}</h2>
 <p><b>Клиент:</b> {db_request.contact_name}</p>
 <p><b>Email:</b> {db_request.contact_email}</p>
-<p><b>Телефон:</b> {db_request.contact_phone or '—'}</p>
-<p><b>Компания:</b> {db_request.company_name or '—'}</p>
-<p><b>Проект:</b> {db_request.project_name or '—'}</p>
-<p><b>Описание:</b> {db_request.project_description or '—'}</p>
-<hr>
+<p><b>Телефон:</b> {db_request.contact_phone or '-'}</p>
+<p><b>Компания:</b> {db_request.company_name or '-'}</p>
+<p><b>Проект:</b> {db_request.project_name or '-'}</p>
+<p><b>Описание:</b> {db_request.project_description or '-'}</p>
+<br>
 <p><b>Позиции:</b></p>
 <ul>
 """
-        for item in items_list:
-            body += f"<li>{item.product_name} x {item.quantity}</li>"
-        body += f"""
+    for item in items_list:
+        body += f"<li>{item.product_name} x {item.quantity}</li>"
+    body += """
 </ul>
 <p><b>Дата:</b> {datetime.now().strftime('%d.%m.%Y %H:%M')}</p>
 """
-        send_email_notification("manager@example.com", f"Заявка #{db_request.request_number}", body)
-    
-    return QuoteResponse(
-        id=db_request.id,
-        request_number=db_request.request_number,
-        status=db_request.status,
-        created_at=db_request.created_at,
-        pdf_url=pdf_url
-    )
+    send_email_notification("manager@example.com", f"Заявка #{db_request.request_number}", body)
+except Exception as e:
+    print(f"Ошибка отправки email: {e}")
 
 @app.get("/api/v1/quote-requests/{request_id}/download")
 def download_quote_pdf(request_id: int):
