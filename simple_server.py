@@ -112,14 +112,14 @@ def generate_request_number():
     now = datetime.utcnow()
     return f"RQ-{now.strftime('%Y%m%d')}-{now.strftime('%H%M%S')}"
 
-# ----- Отправка email (без вложений, только текст) -----
+# --- Отправка email (без вложений, только текст) ---
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 if not EMAIL_PASSWORD:
-    print("Warning: EMAIL_PASSWORD not set")
+    print("⚠️ EMAIL_PASSWORD не задан – уведомления не будут отправляться")
 
 def send_email_notification(manager_email: str, subject: str, body_html: str):
     if not EMAIL_PASSWORD:
-        return
+        return  # ← отступ обязателен
     sender_email = "Ser.orchilob@gmail.com"
     msg = MIMEMultipart()
     msg["From"] = sender_email
@@ -130,7 +130,9 @@ def send_email_notification(manager_email: str, subject: str, body_html: str):
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(sender_email, EMAIL_PASSWORD)
             server.sendmail(sender_email, manager_email, msg.as_string())
-            
+        print("✅ Email отправлен")
+    except Exception as e:
+        print(f"❌ Ошибка email: {e}")           
 
 # ----- Генерация PDF (без внешних шрифтов) -----
 def generate_quote_pdf(request_id: int, request_data: dict, items: list, db: Session) -> str:
