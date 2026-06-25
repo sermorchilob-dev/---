@@ -364,7 +364,7 @@ def create_quote_request(request: QuoteRequestCreate, db: Session = Depends(get_
 <p><b>Дата:</b> {datetime.now().strftime('%d.%m.%Y %H:%M')}</p>
 """
     send_email_notification("manager@example.com", f"Заявка #{db_request.request_number}", body)
-except Exception as e:
+    except Exception as e:
     print(f"Ошибка отправки email: {e}")
 
 @app.get("/api/v1/quote-requests/{request_id}/download")
