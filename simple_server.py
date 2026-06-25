@@ -115,7 +115,7 @@ def generate_request_number():
 # ----- Отправка email (без вложений, только текст) -----
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 if not EMAIL_PASSWORD:
-   pass
+    print("Warning: EMAIL_PASSWORD not set")
 
 def send_email_notification(manager_email: str, subject: str, body_html: str):
     if not EMAIL_PASSWORD:
