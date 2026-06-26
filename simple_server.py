@@ -119,7 +119,7 @@ if not EMAIL_PASSWORD:
 
 def send_email_notification(manager_email: str, subject: str, body_html: str):
     if not EMAIL_PASSWORD:
-        return  # ← отступ обязателен
+        return
     sender_email = "Ser.orchilob@gmail.com"
     msg = MIMEMultipart()
     msg["From"] = sender_email
@@ -132,7 +132,7 @@ def send_email_notification(manager_email: str, subject: str, body_html: str):
             server.sendmail(sender_email, manager_email, msg.as_string())
         print("✅ Email отправлен")
     except Exception as e:
-        print(f"❌ Ошибка email: {e}")           
+        print(f"❌ Ошибка email: {e}")
 
 # ----- Генерация PDF (без внешних шрифтов) -----
 def generate_quote_pdf(request_id: int, request_data: dict, items: list, db: Session) -> str:
@@ -331,6 +331,7 @@ def create_quote_request(request: QuoteRequestCreate, db: Session = Depends(get_
     db.commit()
     db.refresh(db_request)
 
+    # Генерация PDF
     pdf_url = None
     try:
         request_dict = {
@@ -342,10 +343,13 @@ def create_quote_request(request: QuoteRequestCreate, db: Session = Depends(get_
         items_list = db.query(RequestItem).filter(RequestItem.request_id == db_request.id).all()
         pdf_path = generate_quote_pdf(db_request.id, request_dict, items_list, db)
         pdf_url = f"/api/v1/quote-requests/{db_request.id}/download"
-    
+    except Exception as e:
+        print(f"Ошибка генерации PDF: {e}")
+
+    # Отправка email-уведомления
     try:
-    items_list = db.query(RequestItem).filter(RequestItem.request_id == db_request.id).all()
-    body = f"""
+        items_list = db.query(RequestItem).filter(RequestItem.request_id == db_request.id).all()
+        body = f"""
 <h2>Новая заявка #{db_request.request_number}</h2>
 <p><b>Клиент:</b> {db_request.contact_name}</p>
 <p><b>Email:</b> {db_request.contact_email}</p>
@@ -357,15 +361,23 @@ def create_quote_request(request: QuoteRequestCreate, db: Session = Depends(get_
 <p><b>Позиции:</b></p>
 <ul>
 """
-    for item in items_list:
-        body += f"<li>{item.product_name} x {item.quantity}</li>"
-    body += """
+        for item in items_list:
+            body += f"<li>{item.product_name} x {item.quantity}</li>"
+        body += """
 </ul>
 <p><b>Дата:</b> {datetime.now().strftime('%d.%m.%Y %H:%M')}</p>
 """
-    send_email_notification("manager@example.com", f"Заявка #{db_request.request_number}", body)
+        send_email_notification("manager@example.com", f"Заявка #{db_request.request_number}", body)
     except Exception as e:
-    print(f"Ошибка отправки email: {e}")
+        print(f"Ошибка отправки email: {e}")
+
+    return QuoteResponse(
+        id=db_request.id,
+        request_number=db_request.request_number,
+        status=db_request.status,
+        created_at=db_request.created_at,
+        pdf_url=pdf_url
+    )
 
 @app.get("/api/v1/quote-requests/{request_id}/download")
 def download_quote_pdf(request_id: int):
@@ -390,7 +402,7 @@ def list_quote_requests(db: Session = Depends(get_db)):
             "company_name": r.company_name,
             "status": r.status,
             "created_at": r.created_at.isoformat()
-3        }
+        }
         for r in requests
     ]
 
@@ -476,5 +488,5 @@ def get_selection_result(session_id: str, db: Session = Depends(get_db)):
 if __name__ == "__main__":
     import uvicorn
     print("=== RUNNING UVICORN ===", file=sys.stderr)
-sys.stderr.flush()
+    sys.stderr.flush()
     uvicorn.run(app, host="0.0.0.0", port=8000)
