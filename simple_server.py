@@ -41,6 +41,7 @@ sys.stderr.flush()
 if DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://")
 
+# ----- Создание движка и таблиц -----
 engine = create_engine(
     DATABASE_URL,
     echo=False,
@@ -52,7 +53,22 @@ engine = create_engine(
         "keepalives_count": 2
     }
 )
-print("=== STEP 3: engine created ===", file=sys.stderr)
+
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+# ----- Модели для заявок -----
+# ... (ваши модели)
+
+# Создание таблиц с обработкой ошибок
+try:
+    Base.metadata.create_all(bind=engine)
+    print("=== STEP 4: tables created successfully ===", file=sys.stderr)
+    sys.stderr.flush()
+except Exception as e:
+    print(f"=== STEP 4 ERROR: {e} ===", file=sys.stderr)
+    sys.stderr.flush()
+    raiseprint("=== STEP 3: engine created ===", file=sys.stderr)
 sys.stderr.flush()
 
 # ----- Модели для заявок -----
@@ -82,12 +98,12 @@ class RequestItem(Base):
 Base.metadata.create_all(bind=engine)
 try:
     Base.metadata.create_all(bind=engine)
-    print("=== STEP 4: tables created ===", file=sys.stderr)
+    print("=== STEP 4: tables created successfully ===", file=sys.stderr)
     sys.stderr.flush()
 except Exception as e:
     print(f"=== STEP 4 ERROR: {e} ===", file=sys.stderr)
     sys.stderr.flush()
-    raise  # чтобы увидеть полный трейс в логах
+    raise
 
 # ----- Pydantic схемы -----
 class QuoteRequestItem(BaseModel):
