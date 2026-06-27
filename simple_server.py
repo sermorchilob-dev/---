@@ -27,11 +27,15 @@ from reportlab.lib.units import mm
 
 # Загружаем переменные окружения
 load_dotenv()
+print("=== STEP 1: load_dotenv done ===", file=sys.stderr)
+sys.stderr.flush()
 
 # ----- Конфигурация базы данных (используем Transaction pooler с портом 6543) -----
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
-    raise ValueError("❌ DATABASE_URL не задан в .env")
+        raise ValueError("❌ DATABASE_URL не задан в .env")
+        print("=== STEP 2: DATABASE_URL loaded ===", file=sys.stderr)
+sys.stderr.flush()
 
 # Приводим к формату для psycopg2 (если нужно)
 if DATABASE_URL.startswith("postgresql://"):
@@ -40,6 +44,8 @@ if DATABASE_URL.startswith("postgresql://"):
 engine = create_engine(DATABASE_URL, echo=False)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+print("=== STEP 3: engine created ===", file=sys.stderr)
+sys.stderr.flush()
 
 # ----- Модели для заявок -----
 class QuotationRequest(Base):
@@ -66,6 +72,14 @@ class RequestItem(Base):
 
 # Создаём таблицы (если их нет)
 Base.metadata.create_all(bind=engine)
+try:
+    Base.metadata.create_all(bind=engine)
+    print("=== STEP 4: tables created ===", file=sys.stderr)
+    sys.stderr.flush()
+except Exception as e:
+    print(f"ERROR creating tables: {e}", file=sys.stderr)
+    sys.stderr.flush()
+    raise  # повторно выбрасываем, чтобы процесс завершился и мы увидели ошибку в логах
 
 # ----- Pydantic схемы -----
 class QuoteRequestItem(BaseModel):
