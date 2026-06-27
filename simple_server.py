@@ -44,11 +44,14 @@ if DATABASE_URL.startswith("postgresql://"):
 engine = create_engine(
     DATABASE_URL,
     echo=False,
-    pool_pre_ping=True,  # проверяет соединение перед использованием
-    pool_recycle=3600    # пересоздаёт соединение через час
+    pool_pre_ping=True,
+    pool_recycle=3600,
+    connect_args={
+        "keepalives_idle": 5,
+        "keepalives_interval": 2,
+        "keepalives_count": 2
+    }
 )
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
 print("=== STEP 3: engine created ===", file=sys.stderr)
 sys.stderr.flush()
 
@@ -82,9 +85,9 @@ try:
     print("=== STEP 4: tables created ===", file=sys.stderr)
     sys.stderr.flush()
 except Exception as e:
-    print(f"ERROR creating tables: {e}", file=sys.stderr)
+    print(f"=== STEP 4 ERROR: {e} ===", file=sys.stderr)
     sys.stderr.flush()
-    raise  # повторно выбрасываем, чтобы процесс завершился и мы увидели ошибку в логах
+    raise  # чтобы увидеть полный трейс в логах
 
 # ----- Pydantic схемы -----
 class QuoteRequestItem(BaseModel):
