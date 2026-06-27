@@ -69,8 +69,7 @@ try:
 except Exception as e:
     print(f"=== STEP 4 ERROR: {e} ===", file=sys.stderr)
     sys.stderr.flush()
-    raiseprint("=== STEP 3: engine created ===", file=sys.stderr)
-sys.stderr.flush()
+    
 
 # ----- Модели для заявок -----
 class QuotationRequest(Base):
