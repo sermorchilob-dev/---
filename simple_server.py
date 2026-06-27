@@ -50,7 +50,8 @@ engine = create_engine(
     connect_args={
         "keepalives_idle": 5,
         "keepalives_interval": 2,
-        "keepalives_count": 2
+        "keepalives_count": 2,
+        "connect_timeout": 10
     }
 )
 
