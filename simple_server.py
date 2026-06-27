@@ -41,7 +41,12 @@ sys.stderr.flush()
 if DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://")
 
-engine = create_engine(DATABASE_URL, echo=False)
+engine = create_engine(
+    DATABASE_URL,
+    echo=False,
+    pool_pre_ping=True,  # проверяет соединение перед использованием
+    pool_recycle=3600    # пересоздаёт соединение через час
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 print("=== STEP 3: engine created ===", file=sys.stderr)
