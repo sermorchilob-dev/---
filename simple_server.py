@@ -37,7 +37,12 @@ if DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://")
 
 # ----- Создание движка и таблиц -----
-engine = create_engine(
+DATABASE_URL = os.getenv("DATABASE_URL")
+print(f"RAW DATABASE_URL: '{DATABASE_URL}'", file=sys.stderr)
+sys.stderr.flush()
+if not DATABASE_URL:
+    raise ValueError("❌ DATABASE_URL не задан")
+    engine = create_engine(
     DATABASE_URL,
     echo=False,
     pool_pre_ping=True,
@@ -52,12 +57,6 @@ engine = create_engine(
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
-
-# Создание таблиц с обработкой ошибок
-try:
-    Base.metadata.create_all(bind=engine)
-except Exception as e:
-    raise
 
 # ----- Модели для заявок -----
 class QuotationRequest(Base):
@@ -513,8 +512,23 @@ def get_selection_result(session_id: str, db: Session = Depends(get_db)):
         })
     return products
 
+# ----- FastAPI приложение -----
+app = FastAPI(title="Конфигуратор приводной техники", version="2.0")
+app.add_middleware(...)
+
+# ----- Эндпоинты -----
+@app.get("/")
+def root():
+    return {"message": "API конфигуратора работает"}
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
+# ... остальные эндпоинты ...
+
 if __name__ == "__main__":
     import uvicorn
     print("=== ABOUT TO RUN UVICORN ===", file=sys.stderr)
-    sys.stderr.flush()   # ← добавьте отступ (4 пробела)
+    sys.stderr.flush()
     uvicorn.run(app, host="0.0.0.0", port=8000)
