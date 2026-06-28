@@ -46,7 +46,7 @@ engine = create_engine(
         "keepalives_idle": 5,
         "keepalives_interval": 2,
         "keepalives_count": 2,
-        "connect_timeout": 30
+        "connect_timeout": 60
     }
 )
 
