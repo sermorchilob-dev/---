@@ -8,7 +8,6 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import List, Optional, Any
 from uuid import uuid4
-
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -90,7 +89,7 @@ try:
     print("=== STEP 4: tables created successfully ===", file=sys.stderr)
     sys.stderr.flush()
 except Exception as e:
-        raise
+    raise
 
 # ----- Pydantic схемы -----
 class QuoteRequestItem(BaseModel):
@@ -512,6 +511,6 @@ def get_selection_result(session_id: str, db: Session = Depends(get_db)):
 
 if __name__ == "__main__":
     import uvicorn
-    print("=== RUNNING UVICORN ===", file=sys.stderr)
-    sys.stderr.flush()
+    print("=== ABOUT TO RUN UVICORN ===", file=sys.stderr)
+sys.stderr.flush()
     uvicorn.run(app, host="0.0.0.0", port=8000)
