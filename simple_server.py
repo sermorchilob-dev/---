@@ -57,6 +57,7 @@ Base = declarative_base()
 try:
     Base.metadata.create_all(bind=engine)
 except Exception as e:
+    raise
 
 # ----- Модели для заявок -----
 class QuotationRequest(Base):
