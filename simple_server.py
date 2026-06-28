@@ -303,6 +303,10 @@ def get_products(
         })
     return products
 
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+    
 @app.get("/api/v1/manufacturers")
 def get_manufacturers(db: Session = Depends(get_db)):
     result = db.execute(text("SELECT id, name FROM manufacturers ORDER BY name"))
