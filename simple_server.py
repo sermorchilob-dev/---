@@ -130,7 +130,7 @@ def get_db():
     try:
         yield db
     finally:
-    db.close()
+        db.close()
 
 def generate_request_number():
     now = datetime.utcnow()
@@ -512,5 +512,5 @@ def get_selection_result(session_id: str, db: Session = Depends(get_db)):
 if __name__ == "__main__":
     import uvicorn
     print("=== ABOUT TO RUN UVICORN ===", file=sys.stderr)
-sys.stderr.flush()
+    sys.stderr.flush()   # ← добавьте отступ (4 пробела)
     uvicorn.run(app, host="0.0.0.0", port=8000)
