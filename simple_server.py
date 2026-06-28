@@ -56,7 +56,7 @@ Base = declarative_base()
 # Создание таблиц с обработкой ошибок
 try:
     Base.metadata.create_all(bind=engine)
-    except Exception as e:
+except Exception as e:
 
 # ----- Модели для заявок -----
 class QuotationRequest(Base):
@@ -129,7 +129,7 @@ def get_db():
     try:
         yield db
     finally:
-        db.close()
+    db.close()
 
 def generate_request_number():
     now = datetime.utcnow()
