@@ -40,21 +40,35 @@ if DATABASE_URL.startswith("postgresql://"):
 DATABASE_URL = os.getenv("DATABASE_URL")
 print(f"RAW DATABASE_URL: '{DATABASE_URL}'", file=sys.stderr)
 sys.stderr.flush()
+
 if not DATABASE_URL:
+    print("❌ DATABASE_URL is empty, raising error", file=sys.stderr)
+    sys.stderr.flush()
     raise ValueError("❌ DATABASE_URL не задан")
 
-engine = create_engine(
-    DATABASE_URL,
-    echo=False,
-    pool_pre_ping=True,
-    pool_recycle=3600,
-    connect_args={
-        "keepalives_idle": 5,
-        "keepalives_interval": 2,
-        "keepalives_count": 2,
-        "connect_timeout": 60
-    }
-)
+print("=== Creating engine ===", file=sys.stderr)
+sys.stderr.flush()
+
+try:
+    engine = create_engine(
+        DATABASE_URL,
+        echo=False,
+        pool_pre_ping=True,
+        pool_recycle=3600,
+        connect_args={
+            "keepalives_idle": 5,
+            "keepalives_interval": 2,
+            "keepalives_count": 2,
+            "connect_timeout": 60
+        }
+    )
+    print("=== Engine created successfully ===", file=sys.stderr)
+    sys.stderr.flush()
+except Exception as e:
+    print(f"!!! ERROR creating engine: {e}", file=sys.stderr)
+    sys.stderr.flush()
+    raise
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
