@@ -27,24 +27,17 @@ from reportlab.lib.units import mm
 # Загружаем переменные окружения
 load_dotenv()
 
-# ----- Конфигурация базы данных (используем Transaction pooler с портом 6543) -----
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-        raise ValueError("❌ DATABASE_URL не задан в .env")
-        
-# Приводим к формату для psycopg2 (если нужно)
-if DATABASE_URL.startswith("postgresql://"):
-    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://")
-
-# ----- Создание движка и таблиц -----
+# ----- Конфигурация базы данных -----
 DATABASE_URL = os.getenv("DATABASE_URL")
 print(f"RAW DATABASE_URL: '{DATABASE_URL}'", file=sys.stderr)
 sys.stderr.flush()
 
 if not DATABASE_URL:
-    print("❌ DATABASE_URL is empty, raising error", file=sys.stderr)
-    sys.stderr.flush()
     raise ValueError("❌ DATABASE_URL не задан")
+
+# Приводим к формату для psycopg2 (если нужно)
+if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://")
 
 print("=== Creating engine ===", file=sys.stderr)
 sys.stderr.flush()
