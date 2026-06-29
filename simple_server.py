@@ -42,7 +42,8 @@ print(f"RAW DATABASE_URL: '{DATABASE_URL}'", file=sys.stderr)
 sys.stderr.flush()
 if not DATABASE_URL:
     raise ValueError("❌ DATABASE_URL не задан")
-    engine = create_engine(
+
+engine = create_engine(
     DATABASE_URL,
     echo=False,
     pool_pre_ping=True,
