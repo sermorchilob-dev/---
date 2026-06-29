@@ -29,9 +29,6 @@ load_dotenv()
 
 # ----- Конфигурация базы данных -----
 DATABASE_URL = os.getenv("DATABASE_URL")
-print(f"RAW DATABASE_URL: '{DATABASE_URL}'", file=sys.stderr)
-sys.stderr.flush()
-
 if not DATABASE_URL:
     raise ValueError("❌ DATABASE_URL не задан")
 
@@ -39,28 +36,8 @@ if not DATABASE_URL:
 if DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://")
 
-print("=== Creating engine ===", file=sys.stderr)
-sys.stderr.flush()
-
-try:
-    engine = create_engine(
-        DATABASE_URL,
-        echo=False,
-        pool_pre_ping=True,
-        pool_recycle=3600,
-        connect_args={
-            "keepalives_idle": 5,
-            "keepalives_interval": 2,
-            "keepalives_count": 2,
-            "connect_timeout": 60
-        }
-    )
-    print("=== Engine created successfully ===", file=sys.stderr)
-    sys.stderr.flush()
-except Exception as e:
-    print(f"!!! ERROR creating engine: {e}", file=sys.stderr)
-    sys.stderr.flush()
-    raise
+# Создаём движок
+engine = create_engine(DATABASE_URL, echo=False)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
