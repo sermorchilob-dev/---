@@ -55,7 +55,6 @@ engine = create_engine(
         "connect_timeout": 60
     }
 )
-
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
