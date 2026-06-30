@@ -1,4 +1,6 @@
 import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
 import smtplib
 import sys
 print("=== STARTING APP ===", file=sys.stderr)
@@ -13,11 +15,8 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from sqlalchemy import create_engine, Column, Integer, String, Numeric, Text, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, Numeric, Text, DateTime, ForeignKey, Boolean
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy import text
-
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
@@ -32,14 +31,17 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("❌ DATABASE_URL не задан")
 
-# Приводим к формату для psycopg2 (если нужно)
+# Если строка начинается с postgresql://, заменяем для совместимости с psycopg2
 if DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://")
 
-# Создаём движок
+# Создаём engine (на верхнем уровне модуля, вне функций и блоков)
 engine = create_engine(DATABASE_URL, echo=False)
 
+# Создаём SessionLocal, используя engine
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Базовый класс для моделей SQLAlchemy
 Base = declarative_base()
 
 # ----- Модели для заявок -----
@@ -64,15 +66,6 @@ class RequestItem(Base):
     product_name = Column(String(200))
     quantity = Column(Integer, default=1)
     notes = Column(Text)
-
-# Создаём таблицы (если их нет)
-Base.metadata.create_all(bind=engine)
-try:
-    Base.metadata.create_all(bind=engine)
-    print("=== STEP 4: tables created successfully ===", file=sys.stderr)
-    sys.stderr.flush()
-except Exception as e:
-    raise
 
 # ----- Pydantic схемы -----
 class QuoteRequestItem(BaseModel):
