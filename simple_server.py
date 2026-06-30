@@ -1,50 +1,42 @@
 import os
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
 import smtplib
-import sys
-print("=== STARTING APP ===", file=sys.stderr)
-sys.stderr.flush()
 from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import List, Optional, Any
 from uuid import uuid4
+
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from sqlalchemy import Column, Integer, String, Numeric, Text, DateTime, ForeignKey, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, Numeric, Text, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy import text
+
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
 
-# Загружаем переменные окружения
 load_dotenv()
 
-# ----- Конфигурация базы данных -----
+# ----- База данных -----
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("❌ DATABASE_URL не задан")
 
-# Если строка начинается с postgresql://, заменяем для совместимости с psycopg2
 if DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://")
 
-# Создаём engine (на верхнем уровне модуля, вне функций и блоков)
 engine = create_engine(DATABASE_URL, echo=False)
-
-# Создаём SessionLocal, используя engine
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Базовый класс для моделей SQLAlchemy
 Base = declarative_base()
 
-# ----- Модели для заявок -----
+# ----- Модели -----
 class QuotationRequest(Base):
     __tablename__ = "quotation_requests"
     id = Column(Integer, primary_key=True, index=True)
@@ -66,6 +58,8 @@ class RequestItem(Base):
     product_name = Column(String(200))
     quantity = Column(Integer, default=1)
     notes = Column(Text)
+
+Base.metadata.create_all(bind=engine)
 
 # ----- Pydantic схемы -----
 class QuoteRequestItem(BaseModel):
@@ -112,11 +106,8 @@ def generate_request_number():
     now = datetime.utcnow()
     return f"RQ-{now.strftime('%Y%m%d')}-{now.strftime('%H%M%S')}"
 
-# --- Отправка email (без вложений, только текст) ---
+# ----- Email -----
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
-if not EMAIL_PASSWORD:
-    print("⚠️ EMAIL_PASSWORD не задан – уведомления не будут отправляться")
-
 def send_email_notification(manager_email: str, subject: str, body_html: str):
     if not EMAIL_PASSWORD:
         return
@@ -134,7 +125,7 @@ def send_email_notification(manager_email: str, subject: str, body_html: str):
     except Exception as e:
         print(f"❌ Ошибка email: {e}")
 
-# ----- Генерация PDF (без внешних шрифтов) -----
+# ----- PDF -----
 def generate_quote_pdf(request_id: int, request_data: dict, items: list, db: Session) -> str:
     pdf_dir = "pdf_quotes"
     os.makedirs(pdf_dir, exist_ok=True)
@@ -143,13 +134,7 @@ def generate_quote_pdf(request_id: int, request_data: dict, items: list, db: Ses
 
     doc = SimpleDocTemplate(filepath, pagesize=A4, topMargin=20*mm, bottomMargin=20*mm)
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        'TitleStyle',
-        parent=styles['Heading1'],
-        fontSize=16,
-        alignment=1,
-        spaceAfter=12
-    )
+    title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=16, alignment=1, spaceAfter=12)
 
     story = []
     story.append(Paragraph("КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ", title_style))
@@ -167,26 +152,20 @@ def generate_quote_pdf(request_id: int, request_data: dict, items: list, db: Ses
         price = float(price_row[0]) if price_row and price_row[0] else 0.0
         amount = price * item.quantity
         total_sum += amount
-        data.append([
-            str(idx),
-            item.product_name,
-            str(item.quantity),
-            f"{price:,.2f} руб.",
-            f"{amount:,.2f} руб."
-        ])
+        data.append([str(idx), item.product_name, str(item.quantity), f"{price:,.2f} руб.", f"{amount:,.2f} руб."])
     data.append(["", "", "", "<b>Итого:</b>", f"<b>{total_sum:,.2f} руб.</b>"])
 
     table = Table(data, colWidths=[30, 250, 50, 80, 80])
     table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -2), colors.beige),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('BACKGROUND', (0,0), (-1,0), colors.grey),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0,0), (-1,0), 12),
+        ('BACKGROUND', (0,1), (-1,-2), colors.beige),
+        ('GRID', (0,0), (-1,-1), 1, colors.black),
+        ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'),
     ]))
     story.append(table)
     story.append(Spacer(1, 20))
@@ -210,6 +189,10 @@ app.add_middleware(
 @app.get("/")
 def root():
     return {"message": "API конфигуратора работает"}
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
 
 @app.get("/api/v1/products")
 def get_products(
@@ -279,10 +262,6 @@ def get_products(
         })
     return products
 
-@app.get("/health")
-def health_check():
-    return {"status": "ok"}
-    
 @app.get("/api/v1/manufacturers")
 def get_manufacturers(db: Session = Depends(get_db)):
     result = db.execute(text("SELECT id, name FROM manufacturers ORDER BY name"))
@@ -335,7 +314,6 @@ def create_quote_request(request: QuoteRequestCreate, db: Session = Depends(get_
     db.commit()
     db.refresh(db_request)
 
-    # Генерация PDF
     pdf_url = None
     try:
         request_dict = {
@@ -348,9 +326,8 @@ def create_quote_request(request: QuoteRequestCreate, db: Session = Depends(get_
         pdf_path = generate_quote_pdf(db_request.id, request_dict, items_list, db)
         pdf_url = f"/api/v1/quote-requests/{db_request.id}/download"
     except Exception as e:
-        print(f"Ошибка генерации PDF: {e}")
+        print(f"Ошибка PDF: {e}")
 
-    # Отправка email-уведомления
     try:
         items_list = db.query(RequestItem).filter(RequestItem.request_id == db_request.id).all()
         body = f"""
@@ -373,7 +350,7 @@ def create_quote_request(request: QuoteRequestCreate, db: Session = Depends(get_
 """
         send_email_notification("manager@example.com", f"Заявка #{db_request.request_number}", body)
     except Exception as e:
-        print(f"Ошибка отправки email: {e}")
+        print(f"Ошибка email: {e}")
 
     return QuoteResponse(
         id=db_request.id,
@@ -410,7 +387,7 @@ def list_quote_requests(db: Session = Depends(get_db)):
         for r in requests
     ]
 
-# ----- Мастер подбора (упрощённый) -----
+# ----- Мастер подбора -----
 selection_sessions = {}
 MOTOR_QUESTIONS = [
     {"id": "power", "question": "Мощность (кВт)?", "type": "number"},
@@ -489,23 +466,6 @@ def get_selection_result(session_id: str, db: Session = Depends(get_db)):
         })
     return products
 
-# ----- FastAPI приложение -----
-app = FastAPI(title="Конфигуратор приводной техники", version="2.0")
-app.add_middleware(...)
-
-# ----- Эндпоинты -----
-@app.get("/")
-def root():
-    return {"message": "API конфигуратора работает"}
-
-@app.get("/health")
-def health_check():
-    return {"status": "ok"}
-
-# ... остальные эндпоинты ...
-
 if __name__ == "__main__":
     import uvicorn
-    print("=== ABOUT TO RUN UVICORN ===", file=sys.stderr)
-    sys.stderr.flush()
     uvicorn.run(app, host="0.0.0.0", port=8000)
