@@ -24,7 +24,7 @@ from reportlab.lib.units import mm
 
 load_dotenv()
 
-# ----- БАЗА ДАННЫХ (engine создаётся сразу) -----
+# ----- БАЗА ДАННЫХ -----
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("❌ DATABASE_URL не задан")
@@ -32,7 +32,6 @@ if not DATABASE_URL:
 if DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://")
 
-# 👇 engine создаётся на этом уровне
 engine = create_engine(DATABASE_URL, echo=False)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -62,7 +61,6 @@ class RequestItem(Base):
 
 Base.metadata.create_all(bind=engine)
 
-# ... (остальной код, который мы давали в предыдущем сообщении)
 # ----- Pydantic схемы -----
 class QuoteRequestItem(BaseModel):
     product_id: int
@@ -96,7 +94,6 @@ class ProductResponse(BaseModel):
     price: Optional[float]
     manufacturer_name: str
 
-# ----- Вспомогательные функции -----
 def get_db():
     db = SessionLocal()
     try:
@@ -108,7 +105,6 @@ def generate_request_number():
     now = datetime.utcnow()
     return f"RQ-{now.strftime('%Y%m%d')}-{now.strftime('%H%M%S')}"
 
-# ----- Email -----
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 def send_email_notification(manager_email: str, subject: str, body_html: str):
     if not EMAIL_PASSWORD:
@@ -123,11 +119,9 @@ def send_email_notification(manager_email: str, subject: str, body_html: str):
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(sender_email, EMAIL_PASSWORD)
             server.sendmail(sender_email, manager_email, msg.as_string())
-        print("✅ Email отправлен")
-    except Exception as e:
-        print(f"❌ Ошибка email: {e}")
+    except Exception:
+        pass
 
-# ----- PDF -----
 def generate_quote_pdf(request_id: int, request_data: dict, items: list, db: Session) -> str:
     pdf_dir = "pdf_quotes"
     os.makedirs(pdf_dir, exist_ok=True)
@@ -177,7 +171,6 @@ def generate_quote_pdf(request_id: int, request_data: dict, items: list, db: Ses
     doc.build(story)
     return filepath
 
-# ----- FastAPI приложение -----
 app = FastAPI(title="Конфигуратор приводной техники", version="2.0")
 app.add_middleware(
     CORSMiddleware,
@@ -187,7 +180,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ----- Эндпоинты -----
 @app.get("/")
 def root():
     return {"message": "API конфигуратора работает"}
@@ -351,8 +343,8 @@ def create_quote_request(request: QuoteRequestCreate, db: Session = Depends(get_
 <p><b>Дата:</b> {datetime.now().strftime('%d.%m.%Y %H:%M')}</p>
 """
         send_email_notification("manager@example.com", f"Заявка #{db_request.request_number}", body)
-    except Exception as e:
-        print(f"Ошибка email: {e}")
+    except Exception:
+        pass
 
     return QuoteResponse(
         id=db_request.id,
