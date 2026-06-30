@@ -24,7 +24,7 @@ from reportlab.lib.units import mm
 
 load_dotenv()
 
-# ----- База данных -----
+# ----- БАЗА ДАННЫХ (engine создаётся сразу) -----
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("❌ DATABASE_URL не задан")
@@ -32,6 +32,7 @@ if not DATABASE_URL:
 if DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://")
 
+# 👇 engine создаётся на этом уровне
 engine = create_engine(DATABASE_URL, echo=False)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -61,6 +62,7 @@ class RequestItem(Base):
 
 Base.metadata.create_all(bind=engine)
 
+# ... (остальной код, который мы давали в предыдущем сообщении)
 # ----- Pydantic схемы -----
 class QuoteRequestItem(BaseModel):
     product_id: int
