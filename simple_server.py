@@ -1,5 +1,6 @@
 import os
 import smtplib
+import requests
 from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -121,6 +122,23 @@ def send_email_notification(manager_email: str, subject: str, body_html: str):
             server.sendmail(sender_email, manager_email, msg.as_string())
     except Exception:
         pass
+
+def send_telegram_notification(chat_id: str, token: str, message: str):
+    """Отправляет сообщение в Telegram через бота"""
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": message,
+        "parse_mode": "HTML"
+    }
+    try:
+        response = requests.post(url, json=payload, timeout=5)
+        if response.status_code == 200:
+            print("✅ Telegram уведомление отправлено")
+        else:
+            print(f"❌ Ошибка Telegram: {response.status_code} - {response.text}")
+    except Exception as e:
+        print(f"❌ Не удалось отправить Telegram: {e}")
 
 def generate_quote_pdf(request_id: int, request_data: dict, items: list, db: Session) -> str:
     pdf_dir = "pdf_quotes"
@@ -307,6 +325,25 @@ def create_quote_request(request: QuoteRequestCreate, db: Session = Depends(get_
         db.add(db_item)
     db.commit()
     db.refresh(db_request)
+
+    # Отправка уведомления в Telegram
+    try:
+        telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
+        telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID")
+        if telegram_token and telegram_chat_id:
+            message = f"""
+<b>🆕 Новая заявка #{db_request.request_number}</b>
+👤 <b>Клиент:</b> {db_request.contact_name or 'Не указан'}
+📧 <b>Email:</b> {db_request.contact_email}
+📞 <b>Телефон:</b> {db_request.contact_phone or '—'}
+🏢 <b>Компания:</b> {db_request.company_name or '—'}
+📝 <b>Проект:</b> {db_request.project_name or '—'}
+📄 <b>Описание:</b> {db_request.project_description or '—'}
+🔹 <b>Товаров:</b> {len(request.items)}
+"""
+            send_telegram_notification(telegram_chat_id, telegram_token, message)
+    except Exception as e:
+        print(f"❌ Ошибка отправки Telegram: {e}")
 
     pdf_url = None
     try:
