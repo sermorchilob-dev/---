@@ -1,11 +1,13 @@
 import os
 import smtplib
 import requests
+import sys
 from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import List, Optional, Any
 from uuid import uuid4
+from sqlalchemy import create_engine, text
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends
@@ -22,8 +24,14 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
 load_dotenv()
+
+# Путь к шрифту внутри проекта
+font_path = os.path.join(os.path.dirname(__file__), 'fonts', 'DejaVuSans.ttf')
+pdfmetrics.registerFont(TTFont('DejaVuSans', font_path))
 
 # ----- БАЗА ДАННЫХ -----
 DATABASE_URL = os.getenv("DATABASE_URL")
