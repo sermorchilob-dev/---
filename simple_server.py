@@ -8,6 +8,8 @@ from email.mime.multipart import MIMEMultipart
 from typing import List, Optional, Any
 from uuid import uuid4
 from sqlalchemy import create_engine, text
+from email.mime.base import MIMEBase
+from email import encoders
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends
@@ -130,6 +132,42 @@ def send_email_notification(manager_email: str, subject: str, body_html: str):
             server.sendmail(sender_email, manager_email, msg.as_string())
     except Exception:
         pass
+
+def send_quote_email_with_pdf(recipient_email: str, subject: str, body_text: str, pdf_path: str):
+    """Отправляет письмо с PDF-вложением клиенту"""
+    if not EMAIL_PASSWORD:
+        return
+    sender_email = "Ser.orchilob@gmail.com"
+    msg = MIMEMultipart()
+    msg["From"] = sender_email
+    msg["To"] = recipient_email
+    msg["Subject"] = subject
+
+    # Текст письма (HTML)
+    msg.attach(MIMEText(body_text, "html"))
+
+    # Вложение PDF
+    try:
+        with open(pdf_path, "rb") as f:
+            part = MIMEBase("application", "octet-stream")
+            part.set_payload(f.read())
+            encoders.encode_base64(part)
+            part.add_header(
+                "Content-Disposition",
+                f"attachment; filename=commercial_offer_{os.path.basename(pdf_path)}"
+            )
+            msg.attach(part)
+    except Exception as e:
+        print(f"❌ Ошибка при вложении PDF: {e}")
+        return
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(sender_email, EMAIL_PASSWORD)
+            server.sendmail(sender_email, recipient_email, msg.as_string())
+        print(f"✅ PDF отправлен клиенту {recipient_email}")
+    except Exception as e:
+        print(f"❌ Ошибка отправки письма с PDF: {e}")
 
 def send_telegram_notification(chat_id: str, token: str, message: str):
     """Отправляет сообщение в Telegram через бота"""
@@ -364,9 +402,26 @@ def create_quote_request(request: QuoteRequestCreate, db: Session = Depends(get_
         items_list = db.query(RequestItem).filter(RequestItem.request_id == db_request.id).all()
         pdf_path = generate_quote_pdf(db_request.id, request_dict, items_list, db)
         pdf_url = f"/api/v1/quote-requests/{db_request.id}/download"
+        # Отправка PDF клиенту
+    if pdf_path:
+        try:
+            client_body = f"""
+<h2>Здравствуйте, {db_request.contact_name or 'Клиент'}!</h2>
+<p>Ваше коммерческое предложение по заявке <b>№{db_request.request_number}</b> готово.</p>
+<p>Скачайте PDF-файл во вложении.</p>
+<p>Если у вас возникнут вопросы, мы будем рады помочь.</p>
+<br>
+<p>С уважением,<br>Команда PromPortal</p>
+"""
+            send_quote_email_with_pdf(
+                recipient_email=db_request.contact_email,
+                subject=f"Ваше коммерческое предложение №{db_request.request_number}",
+                body_text=client_body,
+                pdf_path=pdf_path
+            )
     except Exception as e:
-        print(f"Ошибка PDF: {e}")
-
+        print(f"❌ Ошибка отправки PDF клиенту: {e}")
+   
     try:
         items_list = db.query(RequestItem).filter(RequestItem.request_id == db_request.id).all()
         body = f"""

@@ -17,6 +17,7 @@ export default function ProductsPage() {
     setLoading(true);
     try {
       const data = await productsApi.getAll({ ...filters, limit, offset: page * limit });
+      console.log('API response:', data);
       setProducts(data);
     } catch (error) {
       console.error('Ошибка загрузки товаров:', error);

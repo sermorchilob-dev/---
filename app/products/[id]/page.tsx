@@ -106,19 +106,3 @@ export default function ProductDetailPage() {
     </div>
   );
 }
-useEffect(() => {
-  loadBearings();
-}, [filters]);
-
-const loadBearings = async () => {
-  setLoading(true);
-  try {
-    const data = await bearingsApi.getAll(filters);
-    console.log('Received bearings:', data);
-    setBearings(data);
-  } catch (error) {
-    console.error('Ошибка загрузки подшипников:', error);
-  } finally {
-    setLoading(false);
-  }
-};
