@@ -334,8 +334,7 @@ def get_products(db: Session = Depends(get_db)):
     except Exception as e:
         print(f"Ошибка: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    )
-
+    
 @app.post("/api/v1/quote-requests", response_model=QuoteResponse)
 def create_quote_request(request: QuoteRequestCreate, db: Session = Depends(get_db)):
     req_number = generate_request_number()
