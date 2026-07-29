@@ -393,9 +393,9 @@ def create_quote_request(request: QuoteRequestCreate, db: Session = Depends(get_
         items_list = db.query(RequestItem).filter(RequestItem.request_id == db_request.id).all()
         pdf_path = generate_quote_pdf(db_request.id, request_dict, items_list, db)
         pdf_url = f"/api/v1/quote-requests/{db_request.id}/download"
+
         # Отправка PDF клиенту
-    if pdf_path:
-        try:
+        if pdf_path:
             client_body = f"""
 <h2>Здравствуйте, {db_request.contact_name or 'Клиент'}!</h2>
 <p>Ваше коммерческое предложение по заявке <b>№{db_request.request_number}</b> готово.</p>
@@ -411,7 +411,8 @@ def create_quote_request(request: QuoteRequestCreate, db: Session = Depends(get_
                 pdf_path=pdf_path
             )
     except Exception as e:
-        print(f"❌ Ошибка отправки PDF клиенту: {e}")
+        # Логируем ошибку (можно заменить на logger.error)
+        print(f"❌ Ошибка при генерации или отправке PDF: {e}")
    
     try:
         items_list = db.query(RequestItem).filter(RequestItem.request_id == db_request.id).all()
