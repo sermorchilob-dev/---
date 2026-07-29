@@ -325,23 +325,15 @@ def get_manufacturers(db: Session = Depends(get_db)):
     result = db.execute(text("SELECT id, name FROM manufacturers ORDER BY name"))
     return [{"id": row[0], "name": row[1]} for row in result]
 
-@app.get("/api/v1/products/{product_id}", response_model=ProductResponse)
-def get_product(product_id: int, db: Session = Depends(get_db)):
-    row = db.execute(text("""
-        SELECT p.id, p.product_code, p.name, p.power_kw, p.speed_rpm, p.voltage, p.price,
-               m.name as manufacturer_name
-        FROM products p
-        JOIN manufacturers m ON p.manufacturer_id = m.id
-        WHERE p.id = :id
-    """), {"id": product_id}).fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail="Product not found")
-    return ProductResponse(
-        id=row[0], product_code=row[1], name=row[2],
-        power_kw=float(row[3]) if row[3] else None,
-        speed_rpm=row[4], voltage=row[5],
-        price=float(row[6]) if row[6] else None,
-        manufacturer_name=row[7]
+@app.get("/api/v1/products")
+def get_products(db: Session = Depends(get_db)):
+    try:
+        result = db.execute(text("SELECT id, product_code, name FROM products LIMIT 10"))
+        products = [{"id": r[0], "product_code": r[1], "name": r[2]} for r in result]
+        return products
+    except Exception as e:
+        print(f"Ошибка: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
     )
 
 @app.post("/api/v1/quote-requests", response_model=QuoteResponse)
