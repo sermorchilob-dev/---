@@ -253,6 +253,7 @@ def health_check():
     return {"status": "ok"}
 
 @app.get("/api/v1/products")
+@app.get("/api/v1/products")
 def get_products(
     limit: int = 20,
     offset: int = 0,
