@@ -4,11 +4,10 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'https://sermorchilob-dev--1365.twc1.net/api/:path*',
+        destination: `${process.env.NEXT_PUBLIC_API_URL}/api/:path*`,
       },
     ];
   },
-  output: "standalone",
 };
 
 module.exports = nextConfig;
