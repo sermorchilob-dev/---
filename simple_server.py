@@ -1,13 +1,11 @@
 import os
 import smtplib
 import requests
-import sys
 from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import List, Optional, Any
 from uuid import uuid4
-from sqlalchemy import create_engine, text
 from email.mime.base import MIMEBase
 from email import encoders
 
@@ -16,10 +14,9 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from sqlalchemy import create_engine, Column, Integer, String, Numeric, Text, DateTime, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, Numeric, Text, DateTime, ForeignKey, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy import text
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
@@ -31,9 +28,16 @@ from reportlab.pdfbase.ttfonts import TTFont
 
 load_dotenv()
 
-# Путь к шрифту внутри проекта
-font_path = os.path.join(os.path.dirname(__file__), 'fonts', 'DejaVuSans.ttf')
-pdfmetrics.registerFont(TTFont('DejaVuSans', font_path))
+# ----- Шрифт для PDF (с проверкой) -----
+font_dir = os.path.join(os.path.dirname(__file__), 'fonts')
+font_path = os.path.join(font_dir, 'DejaVuSans.ttf')
+if os.path.exists(font_path):
+    pdfmetrics.registerFont(TTFont('DejaVuSans', font_path))
+    FONT_NAME = 'DejaVuSans'
+else:
+    # Fallback на стандартный шрифт (может не работать с кириллицей)
+    FONT_NAME = 'Helvetica'
+    print("⚠️ Шрифт DejaVuSans не найден, используется Helvetica (кириллица может отображаться некорректно)")
 
 # ----- БАЗА ДАННЫХ -----
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -116,37 +120,34 @@ def generate_request_number():
     now = datetime.utcnow()
     return f"RQ-{now.strftime('%Y%m%d')}-{now.strftime('%H%M%S')}"
 
+# ----- Email и Telegram -----
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+SENDER_EMAIL = "Ser.orchilob@gmail.com"
+
 def send_email_notification(manager_email: str, subject: str, body_html: str):
     if not EMAIL_PASSWORD:
         return
-    sender_email = "Ser.orchilob@gmail.com"
     msg = MIMEMultipart()
-    msg["From"] = sender_email
+    msg["From"] = SENDER_EMAIL
     msg["To"] = manager_email
     msg["Subject"] = subject
     msg.attach(MIMEText(body_html, "html"))
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(sender_email, EMAIL_PASSWORD)
-            server.sendmail(sender_email, manager_email, msg.as_string())
-    except Exception:
-        pass
+            server.login(SENDER_EMAIL, EMAIL_PASSWORD)
+            server.sendmail(SENDER_EMAIL, manager_email, msg.as_string())
+    except Exception as e:
+        print(f"❌ Ошибка отправки email менеджеру: {e}")
 
 def send_quote_email_with_pdf(recipient_email: str, subject: str, body_text: str, pdf_path: str):
-    """Отправляет письмо с PDF-вложением клиенту"""
     if not EMAIL_PASSWORD:
         return
-    sender_email = "Ser.orchilob@gmail.com"
     msg = MIMEMultipart()
-    msg["From"] = sender_email
+    msg["From"] = SENDER_EMAIL
     msg["To"] = recipient_email
     msg["Subject"] = subject
-
-    # Текст письма (HTML)
     msg.attach(MIMEText(body_text, "html"))
 
-    # Вложение PDF
     try:
         with open(pdf_path, "rb") as f:
             part = MIMEBase("application", "octet-stream")
@@ -163,14 +164,13 @@ def send_quote_email_with_pdf(recipient_email: str, subject: str, body_text: str
 
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(sender_email, EMAIL_PASSWORD)
-            server.sendmail(sender_email, recipient_email, msg.as_string())
+            server.login(SENDER_EMAIL, EMAIL_PASSWORD)
+            server.sendmail(SENDER_EMAIL, recipient_email, msg.as_string())
         print(f"✅ PDF отправлен клиенту {recipient_email}")
     except Exception as e:
         print(f"❌ Ошибка отправки письма с PDF: {e}")
 
 def send_telegram_notification(chat_id: str, token: str, message: str):
-    """Отправляет сообщение в Telegram через бота"""
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {
         "chat_id": chat_id,
@@ -186,7 +186,8 @@ def send_telegram_notification(chat_id: str, token: str, message: str):
     except Exception as e:
         print(f"❌ Не удалось отправить Telegram: {e}")
 
-def generate_quote_pdf(request_id: int, request_data: dict, items: list, db: Session) -> str:
+# ----- Генерация PDF -----
+def generate_quote_pdf(request_id: int, request_data: dict, items: list, db: Session) -> Optional[str]:
     pdf_dir = "pdf_quotes"
     os.makedirs(pdf_dir, exist_ok=True)
     filename = f"quote_{request_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
@@ -194,15 +195,19 @@ def generate_quote_pdf(request_id: int, request_data: dict, items: list, db: Ses
 
     doc = SimpleDocTemplate(filepath, pagesize=A4, topMargin=20*mm, bottomMargin=20*mm)
     styles = getSampleStyleSheet()
+    # Используем зарегистрированный шрифт (или Helvetica)
     title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=16, alignment=1, spaceAfter=12)
+    title_style.fontName = FONT_NAME
+    normal_style = styles['Normal']
+    normal_style.fontName = FONT_NAME
 
     story = []
     story.append(Paragraph("КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ", title_style))
     story.append(Spacer(1, 10))
-    story.append(Paragraph(f"<b>№ заявки:</b> {request_data['request_number']}", styles['Normal']))
-    story.append(Paragraph(f"<b>Дата:</b> {datetime.now().strftime('%d.%m.%Y %H:%M')}", styles['Normal']))
-    story.append(Paragraph(f"<b>Клиент:</b> {request_data.get('company_name', 'Не указано')}", styles['Normal']))
-    story.append(Paragraph(f"<b>Контакт:</b> {request_data.get('contact_name', '')} ({request_data.get('contact_email', '')})", styles['Normal']))
+    story.append(Paragraph(f"<b>№ заявки:</b> {request_data['request_number']}", normal_style))
+    story.append(Paragraph(f"<b>Дата:</b> {datetime.now().strftime('%d.%m.%Y %H:%M')}", normal_style))
+    story.append(Paragraph(f"<b>Клиент:</b> {request_data.get('company_name', 'Не указано')}", normal_style))
+    story.append(Paragraph(f"<b>Контакт:</b> {request_data.get('contact_name', '')} ({request_data.get('contact_email', '')})", normal_style))
     story.append(Spacer(1, 10))
 
     data = [["№", "Наименование", "Кол-во", "Цена", "Сумма"]]
@@ -229,16 +234,17 @@ def generate_quote_pdf(request_id: int, request_data: dict, items: list, db: Ses
     ]))
     story.append(table)
     story.append(Spacer(1, 20))
-    story.append(Paragraph("<b>Условия поставки:</b>", styles['Normal']))
-    story.append(Paragraph("Срок изготовления: 2-4 недели. Доставка по согласованию. Цены указаны без НДС.", styles['Normal']))
+    story.append(Paragraph("<b>Условия поставки:</b>", normal_style))
+    story.append(Paragraph("Срок изготовления: 2-4 недели. Доставка по согласованию. Цены указаны без НДС.", normal_style))
 
     doc.build(story)
     return filepath
 
-app = FastAPI(title="Конфигуратор приводной техники", version="2.0")
+# ----- FastAPI приложение -----
+app = FastAPI(title="Конфигуратор приводной техники", version="2.1")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # для продакшена замените на список доменов
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -252,7 +258,6 @@ def root():
 def health_check():
     return {"status": "ok"}
 
-@app.get("/api/v1/products")
 @app.get("/api/v1/products")
 def get_products(
     limit: int = 20,
@@ -321,21 +326,33 @@ def get_products(
         })
     return products
 
+@app.get("/api/v1/products/{product_id}", response_model=ProductResponse)
+def get_product(product_id: int, db: Session = Depends(get_db)):
+    row = db.execute(text("""
+        SELECT p.id, p.product_code, p.name, p.power_kw, p.speed_rpm, p.voltage, p.price,
+               m.name as manufacturer_name
+        FROM products p
+        JOIN manufacturers m ON p.manufacturer_id = m.id
+        WHERE p.id = :id
+    """), {"id": product_id}).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return ProductResponse(
+        id=row[0],
+        product_code=row[1],
+        name=row[2],
+        power_kw=float(row[3]) if row[3] else None,
+        speed_rpm=row[4],
+        voltage=row[5],
+        price=float(row[6]) if row[6] else None,
+        manufacturer_name=row[7]
+    )
+
 @app.get("/api/v1/manufacturers")
 def get_manufacturers(db: Session = Depends(get_db)):
     result = db.execute(text("SELECT id, name FROM manufacturers ORDER BY name"))
     return [{"id": row[0], "name": row[1]} for row in result]
 
-@app.get("/api/v1/products")
-def get_products(db: Session = Depends(get_db)):
-    try:
-        result = db.execute(text("SELECT id, product_code, name FROM products LIMIT 10"))
-        products = [{"id": r[0], "product_code": r[1], "name": r[2]} for r in result]
-        return products
-    except Exception as e:
-        print(f"Ошибка: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-    
 @app.post("/api/v1/quote-requests", response_model=QuoteResponse)
 def create_quote_request(request: QuoteRequestCreate, db: Session = Depends(get_db)):
     req_number = generate_request_number()
@@ -364,7 +381,10 @@ def create_quote_request(request: QuoteRequestCreate, db: Session = Depends(get_
     db.commit()
     db.refresh(db_request)
 
-    # Отправка уведомления в Telegram
+    # Получаем список товаров для дальнейшего использования
+    items_list = db.query(RequestItem).filter(RequestItem.request_id == db_request.id).all()
+
+    # Уведомление в Telegram
     try:
         telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
         telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID")
@@ -391,12 +411,11 @@ def create_quote_request(request: QuoteRequestCreate, db: Session = Depends(get_
             "contact_name": db_request.contact_name,
             "contact_email": db_request.contact_email,
         }
-        items_list = db.query(RequestItem).filter(RequestItem.request_id == db_request.id).all()
         pdf_path = generate_quote_pdf(db_request.id, request_dict, items_list, db)
-        pdf_url = f"/api/v1/quote-requests/{db_request.id}/download"
-
-        # Отправка PDF клиенту
         if pdf_path:
+            pdf_url = f"/api/v1/quote-requests/{db_request.id}/download"
+
+            # Отправка PDF клиенту
             client_body = f"""
 <h2>Здравствуйте, {db_request.contact_name or 'Клиент'}!</h2>
 <p>Ваше коммерческое предложение по заявке <b>№{db_request.request_number}</b> готово.</p>
@@ -412,11 +431,10 @@ def create_quote_request(request: QuoteRequestCreate, db: Session = Depends(get_
                 pdf_path=pdf_path
             )
     except Exception as e:
-        # Логируем ошибку (можно заменить на logger.error)
         print(f"❌ Ошибка при генерации или отправке PDF: {e}")
-   
+
+    # Уведомление менеджеру (email)
     try:
-        items_list = db.query(RequestItem).filter(RequestItem.request_id == db_request.id).all()
         body = f"""
 <h2>Новая заявка #{db_request.request_number}</h2>
 <p><b>Клиент:</b> {db_request.contact_name}</p>
@@ -431,13 +449,13 @@ def create_quote_request(request: QuoteRequestCreate, db: Session = Depends(get_
 """
         for item in items_list:
             body += f"<li>{item.product_name} x {item.quantity}</li>"
-        body += """
+        body += f"""
 </ul>
 <p><b>Дата:</b> {datetime.now().strftime('%d.%m.%Y %H:%M')}</p>
 """
         send_email_notification("manager@example.com", f"Заявка #{db_request.request_number}", body)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"❌ Ошибка отправки email менеджеру: {e}")
 
     return QuoteResponse(
         id=db_request.id,
@@ -474,7 +492,7 @@ def list_quote_requests(db: Session = Depends(get_db)):
         for r in requests
     ]
 
-# ----- Мастер подбора -----
+# ----- Мастер подбора (хранилище в памяти) -----
 selection_sessions = {}
 MOTOR_QUESTIONS = [
     {"id": "power", "question": "Мощность (кВт)?", "type": "number"},
